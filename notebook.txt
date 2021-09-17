@@ -1,0 +1,18 @@
+
+First we create a rec object that requires reading in 
+all alignments. We need all alignments, as we need to 
+consider all reads that belong a barcode-UMI. A UMI can 
+have multiple duplicated reads, that can align anywhere 
+in the genome. To assign an alignment to a UMI, we need 
+to take all alignments into consideration, and thus need 
+to pass through the entire genome.
+
+Once we have read through all alignments, we 'call' the 
+UMIs and assign the best alignment (or discard). Then 
+we count UMIs to each gene.
+
+We want the barcodes and UMIs in a Records struct to be 
+hash tables, as filling in the Records struct from a BAM 
+file will be MUCH faster. It is a little more memory 
+intensive though.
+
