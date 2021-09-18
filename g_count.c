@@ -127,10 +127,11 @@ int bc_gc_count(bc_gc *a, Records *recs){
             }
         }
     }
+
     return 0;
 }
     
-int bc_gc_write(bc_gc *a, char *fn){
+int bc_gc_write(bc_gc *a, Annotation *anno, char *fn){
     char delim[] = " ";
     if (mkpath(fn, 0755) == -1){
         fprintf(stderr, "error: bc_gc_write: failed to create output directory for %s", fn);
@@ -155,7 +156,7 @@ int bc_gc_write(bc_gc *a, char *fn){
     char mtx_hdr[] = "%%MatrixMarket matrix coordinate integer general\n";
     ret = bgzf_write(fp, mtx_hdr, strlen(mtx_hdr));
     ret = bgzf_write(fp, "%\n", 2);
-    int nstrs = 6;
+    int nstrs = 3;
     char *strs[nstrs];
     size_t lens[nstrs];
     int rets[nstrs];
@@ -166,9 +167,13 @@ int bc_gc_write(bc_gc *a, char *fn){
         strs[i] = malloc(lens[i] * sizeof(char));
     }
 
-    rets[0] = int2strp((int)a->gene_ix->n, strs + 0, lens + 0);
-    rets[1] = int2strp((int)a->bc_ix->n  , strs + 1, lens + 1);
-    rets[2] = int2strp((int)a->n_nz      , strs + 2, lens + 2);
+    int nrow = (int)a->gene_ix->n * N_SPL;
+    int ncol = (int)a->bc_ix->n;
+    int n_nz = (int)a->n_nz * N_SPL;
+
+    rets[0] = int2strp(nrow, strs + 0, lens + 0);
+    rets[1] = int2strp(ncol, strs + 1, lens + 1);
+    rets[2] = int2strp(n_nz, strs + 2, lens + 2);
 
     for (i = 0; i < 3; ++i){
         if (i) ret = bgzf_write(fp, delim, 1);
@@ -182,40 +187,43 @@ int bc_gc_write(bc_gc *a, char *fn){
     }
 
     // write counts
-    int k, bci = 1;
-    for (k = 0; k < a->bc_ix->n; ++k){
-        char *bc_key = str_map_str(a->bc_ix, k);
-        if (bc_key == NULL) continue;
+    int k, s;
+    for (s = SPLICE; s <= AMBIG; ++s){
+        for (k = 0; k < a->bc_ix->n; ++k){
+            char *bc_key = str_map_str(a->bc_ix, k);
+            if (bc_key == NULL) continue;
 
-        khint_t k_bc = kh_get(gc, a->gcs, bc_key);
-        if (k_bc == kh_end(a->gcs)){
-            fprintf(stderr, "error: bc_gc_write: could not find barcode %s. Initialize bc_gc properly\n", bc_key);
-            return -1;
-        }
-        gc_node *n = &(kh_val(a->gcs, k_bc));
-        for (n = n->next; n; n = n->next){
-            int fix = n->ix + 1;
-
-            //get total counts
-            int i, total = 0;
-            for (i = 0; i < N_SPL; ++i) total += (int)n->counts[i];
-
-            rets[0] = int2strp(fix       , strs + 0, lens + 0);
-            rets[1] = int2strp(bci       , strs + 1, lens + 1);
-            rets[2] = int2strp(total     , strs + 2, lens + 2);
-            rets[3] = int2strp((int)n->counts[SPLICE]  , strs + 3, lens + 3);
-            rets[4] = int2strp((int)n->counts[UNSPLICE], strs + 4, lens + 4);
-            rets[5] = int2strp((int)n->counts[AMBIG]   , strs + 5, lens + 5);
-            if (rets[4] != strlen(strs[4]))
-                printf("rets[4] = %i; strlen(strs[4]) = %zu\n", rets[4], strlen(strs[4]));
-            for (i = 0; i < nstrs; ++i){
-                if (i) ret = bgzf_write(fp, delim, 1);
-                ret = bgzf_write(fp, strs[i], rets[i]);
+            khint_t k_bc = kh_get(gc, a->gcs, bc_key);
+            if (k_bc == kh_end(a->gcs)){
+                // a barcode can be present but have no counts
+                continue;
+                // fprintf(stderr, "error: bc_gc_write: could not find barcode %s. Initialize bc_gc properly\n", bc_key);
+                // return -1;
             }
-            ret = bgzf_write(fp, "\n", 1);
+            gc_node *n = &(kh_val(a->gcs, k_bc));
+            for (n = n->next; n; n = n->next){
+                int fix = n->ix + 1 + (s * a->gene_ix->n);
+
+                //get total counts
+                int i, total = 0;
+                for (i = 0; i < N_SPL; ++i) total += (int)n->counts[i];
+
+                rets[0] = int2strp(fix       , strs + 0, lens + 0);
+                rets[1] = int2strp(k+1       , strs + 1, lens + 1);
+                rets[2] = int2strp((int)n->counts[s], strs + 2, lens + 2);
+                // rets[2] = int2strp(total     , strs + 2, lens + 2);
+                // rets[3] = int2strp((int)n->counts[SPLICE]  , strs + 3, lens + 3);
+                // rets[4] = int2strp((int)n->counts[UNSPLICE], strs + 4, lens + 4);
+                // rets[5] = int2strp((int)n->counts[AMBIG]   , strs + 5, lens + 5);
+                for (i = 0; i < nstrs; ++i){
+                    if (i) ret = bgzf_write(fp, delim, 1);
+                    ret = bgzf_write(fp, strs[i], rets[i]);
+                }
+                ret = bgzf_write(fp, "\n", 1);
+            }
         }
-        bci++;
     }
+
     for (i = 0; i < nstrs; ++i) free(strs[i]);
     bgzf_close(fp);
 
@@ -230,12 +238,49 @@ int bc_gc_write(bc_gc *a, char *fn){
     }
     free(ofn);
 
-    for (k = 0; k < a->gene_ix->n; ++k){
-        char *gene_key = str_map_str(a->gene_ix, k);
-        if (gene_key == NULL) continue;
-        ret = bgzf_write(fp, gene_key, strlen(gene_key));
-        ret = bgzf_write(fp, "\n", 1);
+    size_t intstrp_len = 1;
+    char *intstrp = malloc(sizeof(char) * intstrp_len);
+
+    char *spl_types[] = {"SPLICE", "UNSPLICE", "AMBIG"};
+    for (s = SPLICE; s <= AMBIG; ++s){
+        for (k = 0; k < a->gene_ix->n; ++k){
+            char *gene_key = str_map_str(a->gene_ix, k);
+            Gene *gene_obj = gene_from_name(anno, gene_key);
+
+            if (gene_key == NULL) continue;
+
+            char *chrm = str_map_str(anno->chrm_ix, gene_obj->chrm);
+            ret = bgzf_write(fp, chrm, strlen(chrm));
+
+            if (int2strp(gene_obj->beg, &intstrp, &intstrp_len) < 0){
+                fprintf(stderr, "error: bc_gc_write: failed to convert int to str\n");
+                return -1;
+            }
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, intstrp, strlen(intstrp));
+            
+            int2strp(gene_obj->end, &intstrp, &intstrp_len);
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, intstrp, strlen(intstrp));
+
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, &gene_obj->strand, 1);
+
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, gene_obj->type, strlen(gene_obj->type));
+
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, gene_obj->name, strlen(gene_obj->name));
+
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, gene_key, strlen(gene_key));
+
+            ret = bgzf_write(fp, "\t", 1);
+            ret = bgzf_write(fp, spl_types[s], strlen(spl_types[s]));
+            ret = bgzf_write(fp, "\n", 1);
+        }
     }
+    free(intstrp);
     bgzf_close(fp);
 
     // barcode file
@@ -251,7 +296,10 @@ int bc_gc_write(bc_gc *a, char *fn){
 
     for (k = 0; k < a->bc_ix->n; ++k){
         char *bc_key = str_map_str(a->bc_ix, k);
-        if (bc_key == NULL) continue;
+        if (bc_key == NULL) {
+            printf("barcode %i is NULL\n", k);
+            continue;
+        }
         ret = bgzf_write(fp, bc_key, strlen(bc_key));
         ret = bgzf_write(fp, "\n", 1);
     }

@@ -26,6 +26,15 @@ void print_status_gc(const char* k, int i, const char *chr, int pos){
     fflush(stdout);
 }
 
+void print_status_gc2(const char* str){
+    time_t now;
+    time(&now);
+    char dt[20];
+    get_time(dt, 20);
+    fprintf(stdout, "%s: %s\n", dt, str);
+    fflush(stdout);
+}
+
 static void usage(FILE *fp, int exit_status){
     fprintf(fp, 
             "\n"
@@ -350,7 +359,7 @@ int gene_count(int argc, char *argv[]){
         fflush(stdout);
     }
 
-    if (verbose) print_summary(records);
+    // if (verbose) print_summary(records);
 
     // call UMIs
     if (verbose) fprintf(stdout, "filtering UMI reads\n");
@@ -360,6 +369,7 @@ int gene_count(int argc, char *argv[]){
     // gene counts
     g_counts = init_bc_gc();
 
+    if (verbose) fprintf(stdout, "counting UMIs\n");
     if (bc_gc_add_gene_map(g_counts, records->gene_ix) < 0){
         ret = EXIT_FAILURE;
         goto cleanup;
@@ -372,10 +382,11 @@ int gene_count(int argc, char *argv[]){
         ret = EXIT_FAILURE;
         goto cleanup;
     }
-    if (bc_gc_write(g_counts, outfn) < 0){
+    if (bc_gc_write(g_counts, a, outfn) < 0){
         ret = EXIT_FAILURE;
         goto cleanup;
     }
+
 
 cleanup:
 
@@ -395,6 +406,8 @@ cleanup:
     free(var); 
     free(base); 
     free(qual);
+
+    if (verbose) fprintf(stdout, "finished counting UMIs\n");
 
     return(ret);
 }

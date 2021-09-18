@@ -456,7 +456,7 @@ int call_umis(Records *recs){
     for (k = kh_begin(recs->bc); k != kh_end(recs->bc); ++k){
         if (!kh_exist(recs->bc, k)) continue;
         Barcode *bc = kh_val(recs->bc, k);
-        char *bc_key = kh_key(recs->bc, k);
+        // char *bc_key = kh_key(recs->bc, k);
         khint_t l;
         int n_umi = 0;
         for (l = kh_begin(bc->umis); l != kh_end(bc->umis); ++l){
@@ -501,12 +501,15 @@ int call_umis(Records *recs){
                 kh_del(umi, bc->umis, l);
             }
         }
+        // keep even if barcode has 0 UMIs
+        /*
         // remove if barcode has 0 UMIs
         if (n_umi == 0){
             str_map_del(recs->bc_ix, bc_key);
             destroy_barcode(bc);
             kh_del(bc, recs->bc, k);
         }
+        */
     }
     return 0;
 }

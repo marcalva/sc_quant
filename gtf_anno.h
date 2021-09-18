@@ -86,6 +86,7 @@ typedef struct Chrm {
 typedef struct {
     str_map *chrm_ix; // string to index in chrms array
     str_map *gene_ix; // gene to index. g->ix has same memory as key here
+    khash_t(str_int) *gene_chrm; // gene to chrm ix. key is same memory as g->id
     khash_t(str_int) *gene_bin; // gene to bin. key is same memory as g->id
     Chrm **chrms; // array of pointers to Chrm objects.
     int chrms_m; // allocated max number of elements in chrms
@@ -170,7 +171,8 @@ int add_chrm(Annotation *a, char *c);
  *
  * If not found, returns NULL. If found, returns the pointer to it.
  */
-Gene *gene_from_name(Annotation *a, int chrm_ix, char *gene_id);
+Gene *gene_from_name_chrm(Annotation *a, int chrm_ix, char *gene_id);
+Gene *gene_from_name(Annotation *a, char *gene_id);
 
 /****************************
  * GTF processing

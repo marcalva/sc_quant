@@ -47,6 +47,6 @@ int bc_gc_add_bc_map(bc_gc *a, str_map *sm);
 
 int bc_gc_count(bc_gc *a, Records *recs);
 
-int bc_gc_write(bc_gc *a, char *fn);
+int bc_gc_write(bc_gc *a, Annotation *anno, char *fn);
 
 #endif // G_COUNT_H

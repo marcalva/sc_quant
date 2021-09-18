@@ -106,6 +106,7 @@ Annotation *init_anno(){
         }
         a->chrm_ix = init_str_map();
         a->gene_ix = init_str_map();
+        a->gene_chrm = kh_init(str_int);
         a->gene_bin = kh_init(str_int);
         a->chrms_m = init_n;
     }
@@ -148,6 +149,7 @@ void destroy_anno(Annotation *a){
 
     destroy_str_map(a->chrm_ix);
     destroy_str_map(a->gene_ix);
+    kh_destroy(str_int, a->gene_chrm);
     kh_destroy(str_int, a->gene_bin);
 
     free(a);
@@ -172,7 +174,23 @@ int add_chrm(Annotation *a, char *c){
     return chr_ix;
 }
 
-Gene *gene_from_name(Annotation *a, int chrm_ix, char *gene_id){
+Gene *gene_from_name_chrm(Annotation *a, int chrm_ix, char *gene_id){
+    khint_t k;
+    k = kh_get(str_int, a->gene_bin, gene_id);
+    if (k == kh_end(a->gene_bin)){
+        err_msg(-1, 0, "gene_from_name_chrm: gene %s not found in gene_bin", gene_id);
+        return NULL;
+    }
+    int bin = kh_val(a->gene_bin, k);
+
+    Gene *ag = a->chrms[chrm_ix]->bins[bin];
+    for (; ag != NULL; ag = ag->next){
+        if (strcmp(ag->id, gene_id) == 0) break;
+    }
+    return ag;
+}
+
+Gene *gene_from_name(Annotation *a, char *gene_id){
     khint_t k;
     k = kh_get(str_int, a->gene_bin, gene_id);
     if (k == kh_end(a->gene_bin)){
@@ -180,6 +198,13 @@ Gene *gene_from_name(Annotation *a, int chrm_ix, char *gene_id){
         return NULL;
     }
     int bin = kh_val(a->gene_bin, k);
+
+    k = kh_get(str_int, a->gene_chrm, gene_id);
+    if (k == kh_end(a->gene_chrm)){
+        err_msg(-1, 0, "gene_from_name: gene %s not found in gene_chrm", gene_id);
+        return NULL;
+    }
+    int chrm_ix = kh_val(a->gene_chrm, k);
 
     Gene *ag = a->chrms[chrm_ix]->bins[bin];
     for (; ag != NULL; ag = ag->next){
@@ -295,12 +320,20 @@ int gtf_gene2anno(Annotation *a, gtf_line *gl){
     // add gene bin
     khint_t k;
     int ret;
+
+    // printf("putting in gene_chrm\n");
+    k = kh_put(str_int, a->gene_chrm, g->id, &ret);
+    if (ret < 0)
+        return err_msg(-1, 0, "gtf_gene2anno: failed to add %s to gene_chrm", gene_id);
+    kh_val(a->gene_chrm, k) = ci;
+    // printf("placed in gene_chrm\n");
+
+    // add gene bin
     k = kh_put(str_int, a->gene_bin, g->id, &ret);
-    if (ret < 0){
-        err_msg(-1, 0, "gtf_gene2anno: failed to add %s to gene_bin", gene_id);
-        return -1;
-    }
+    if (ret < 0)
+        return err_msg(-1, 0, "gtf_gene2anno: failed to add %s to gene_bin", gene_id);
     kh_val(a->gene_bin, k) = g->bin;
+
     return 0;
 }
 
@@ -330,13 +363,13 @@ int gtf_iso2anno(Annotation *a, gtf_line *gl){
     iso->end = gl->end;
 
     // get gene object
-    Gene *ag = gene_from_name(a, ci, gene_id);
+    Gene *ag = gene_from_name_chrm(a, ci, gene_id);
     if (ag == NULL){
         err_msg(-1, 0, "gtf_iso2anno: gene %s not found", gene_id);
         return -1;
     }
 
-    char *tx_id_cpy = (char*)calloc(strlen(tx_id)+1, sizeof(char));
+    char *tx_id_cpy = calloc(strlen(tx_id)+1, sizeof(char));
     strcpy(tx_id_cpy, tx_id);
     
     int ret;
@@ -387,7 +420,7 @@ int gtf_exon2anno(Annotation *a, gtf_line *gl){
     khint_t k;
 
     // get gene object
-    Gene *ag = gene_from_name(a, ci, gene_id);
+    Gene *ag = gene_from_name_chrm(a, ci, gene_id);
     if (ag == NULL){
         err_msg(-1, 0, "gtf_exon2anno: gene %s not found in bin index", gene_id);
         return -1;
@@ -414,6 +447,7 @@ int gtf_exon2anno(Annotation *a, gtf_line *gl){
         return -1;
     }
 
+    e->next = ge->next;
     ge->next = e;
     iso->exons_n++;
 
