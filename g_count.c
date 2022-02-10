@@ -106,8 +106,7 @@ int bc_gc_count(bc_gc *a, Records *recs){
                 char *fid = str_map_str(recs->gene_ix, fix);
                 fix = str_map_ix(a->gene_ix, fid);
                 if (fix == -1){
-                    fprintf(stderr, "error: bc_gc_count: could not find gene %s. Initialize bc_gc properly\n", fid);
-                    return -1;
+                    return err_msg(-1, 0, "bc_gc_count: could not find gene %s. Initialize bc_gc properly\n", fid);
                 }
 
                 gc_node *n = hn;

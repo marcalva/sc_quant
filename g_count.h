@@ -13,7 +13,7 @@
 
 /* hold counts for a gene */
 typedef struct gc_node {
-    int ix; // gene index from var_ix
+    int ix; // gene index from gene_ix
     uint32_t counts[N_SPL];
     struct gc_node *next; // pointer to next gc_node, NULL if none
 } gc_node;

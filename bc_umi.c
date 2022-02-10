@@ -156,7 +156,6 @@ Barcode *init_barcode(){
     }
 
     b->umis = kh_init(umi);
-    b->umis_a = NULL;
     return(b);
 }
 
@@ -171,7 +170,6 @@ void destroy_barcode(Barcode *b){
         if (u) destroy_umi(u);
     }
     kh_destroy(umi, b->umis);
-    if (b->umis_a != NULL) free(b->umis_a);
     free(b);
 }
 
@@ -590,28 +588,6 @@ int subset_vars_recs(Records *recs, str_map *vars){
     // switch to new map
     destroy_str_map(recs->var_ix);
     recs->var_ix = str_map_copy(vars);
-    return 0;
-}
-
-int fill_umi_array(Records *recs){
-    khint_t k;
-    for (k = kh_begin(recs->bc); k != kh_end(recs->bc); ++k){
-        if (!kh_exist(recs->bc, k)) continue;
-        Barcode *bc = kh_val(recs->bc, k);
-        int n_umi = kh_size(bc->umis), umi_ix = 0;
-        if (n_umi == 0) continue;
-        bc->umis_a = (UMI **)calloc(n_umi, sizeof(UMI *));
-
-        if (bc->umis_a == NULL)
-            return err_msg(-1, 0, "fill_umi_array: %s", strerror(errno));
-
-        khint_t l;
-        for (l = kh_begin(bc->umis); l != kh_end(bc->umis); ++l){
-            if (!kh_exist(bc->umis, l)) continue;
-            UMI *u = kh_val(bc->umis, l);
-            bc->umis_a[umi_ix++] = u;
-        }
-    }
     return 0;
 }
 

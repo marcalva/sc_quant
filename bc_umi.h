@@ -22,14 +22,15 @@ enum spl {SPLICE, UNSPLICE, AMBIG, NA};
 #define N_SPL 3
 
 /* Record struct
+ * A record holds information on a UMI alignment.
  */
 typedef struct Rec {
     uint8_t n_feat; // number of elements in feat array
     uint8_t m_feat; // allocated size of feat array
     int32_t *feat; // array of feature indices, IDs in records->gene_ix hash table
     uint8_t *splice; // array of splice values (from enum spl)
-    uint8_t n_var; // number of elements in var array
-    uint8_t m_var; // allocated size of var array
+    uint8_t n_var; // number of elements in var, base, qual arrays
+    uint8_t m_var; // allocated size of var, base, qual arrays
     int32_t *var; // array of variant indices, IDs in records->var_ix hash
     uint8_t *base; // base calls: ref, alt, other (from enum alleles)
     uint8_t *qual; // quality scores: phred quality 0-40
@@ -38,6 +39,7 @@ typedef struct Rec {
 } Rec;
 
 /* UMI struct
+ * @field recs Linked list of records
  * @field best_rec Best read/alignment. This pointer is initialized to NULL, and filled after 
  *   calling the function call_umis. If no best rec can be called, it remains NULL.
  */
@@ -51,7 +53,6 @@ KHASH_INIT(umi, char*, UMI*, 1, kh_str_hash_func, kh_str_hash_equal);
 /* Barcode struct */
 typedef struct {
     khash_t(umi) *umis; // key is same memory as Records->umi_ix
-    UMI **umis_a; // contiguous array of UMIs. Filled after.
 } Barcode;
 
 KHASH_INIT(bc, char*, Barcode*, 1, kh_str_hash_func, kh_str_hash_equal);
@@ -199,10 +200,6 @@ int fltr_bq(Records *recs, uint8_t min_qual);
 /* subset to variants in vars only */
 int subset_vars_rec(Records *recs, Rec *rec, str_map *vars);
 int subset_vars_recs(Records *recs, str_map *vars);
-
-/* fill UMI array from hash table 
- * return -1 on error, 0 if umis_a was filled */
-int fill_umi_array(Records *recs);
 
 
 

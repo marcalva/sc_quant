@@ -5,6 +5,12 @@
 
 ac_node *init_ac_node(){
     ac_node *n = calloc(1, sizeof(ac_node));
+
+    if (n == NULL){
+        err_msg(-1, 0, "init_ac_node: %s", strerror(errno));
+        return NULL;
+    }
+
     n->ix = -1;
     int i;
     for (i = 0; i < N_ALLELE; ++i) n->counts[i] = 0;
@@ -27,8 +33,17 @@ void ac_node_set_zero(ac_node *n){
 
 bc_ac *init_bc_ac(){
     bc_ac *a = calloc(1, sizeof(bc_ac));
+
+    if (a == NULL){
+        err_msg(-1, 0, "init_bc_ac: %s", strerror(errno));
+        return NULL;
+    }
+
     a->var_ix = init_str_map();
     a->bc_ix = init_str_map();
+
+    if (a->var_ix == NULL || a->bc_ix == NULL) return NULL;
+
     a->acs = kh_init(ac);
     a->n_nz = 0;
     return a;
