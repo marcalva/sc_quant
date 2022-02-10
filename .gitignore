@@ -1,2 +1,4 @@
 *.o
-test
+/test
+/sc_quant
+/notebook.txt
