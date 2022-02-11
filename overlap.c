@@ -228,27 +228,31 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
      *   sort by sj=1 > sj=0, then by pe
      *********************************************************/
 
-    int max_i = 0;
-    for (i = 1; i < n_iso; ++i){
-        if (sj[i] > sj[max_i]){
-            max_i = i;
-            continue;
-        }
-        if (pe[i] > pe[max_i]){
-            max_i = i;
+    int is_spl = 0;
+    double pea[2] = {0.0, 0.0};
+    for (i = 0; i < n_iso; ++i){
+        if (sj[i] == 1)
+            is_spl = 1;
+        if (pe[i] > pea[sj[i]]){
+            pea[sj[i]] = pe[i];
             continue;
         }
     }
 
     /*********************************************************
+     * if read overlaps at least one isoform overlapping a splice junction 
+     *  and with 100% of read covering the exons, then it is spliced.
+     * if read does not overlap any splice junctions and the fraction of 
+     *  overlap with exons is less than 1 for all isoforms, it is intronic
+     * otherwise it is ambiguous.
      * if sj = 1 and pe = 1 SPLICE
      * if sj = 0 and pe = 1 UNSPLICE
      * else AMBIG
      *********************************************************/
 
     uint8_t spl_stat;
-    if (sj[max_i] == 1 && pe[max_i] == 1) spl_stat = SPLICE;
-    else if (sj[max_i] == 0 && pe[max_i] == 1) spl_stat = AMBIG;
+    if (is_spl == 1 && pea[1] == 1) spl_stat = SPLICE;
+    else if (is_spl == 0 && pea[0] == 1) spl_stat = AMBIG;
     else spl_stat = UNSPLICE;
 
     free(pe);

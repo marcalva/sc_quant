@@ -13,25 +13,25 @@
 #include "variants.h"
 #include "bc_umi.h"
 
-/* Overlap a bam1_t read with features given Annotation
- * Find the features that the read fully intersects, i.e. is fully contained.
- * For each feature, give whether the read is spliced, unspliced, or ambiguous.
+/* Overlap a bam1_t read with features given Annotation Find the features that
+ * the read fully intersects, i.e. is fully contained.  For each feature, give
+ * whether the read is spliced, unspliced, or ambiguous.
  *
  * The features and splice status are returned as integer indices in an array.
- * The number of elements in the array are stored in @p n_feat, while the 
+ * The number of elements in the array are stored in @p n_feat, while the
  * allocated size of the array is stored in @p m_feat.
  *
- * @param h pointer to header for bam record @p b.
- * @param b pointer to bam1_t object for overlap.
- * @param a pointer to Annotation object with features.
+ * @param h pointer to header for bam record @p b.  @param b pointer to bam1_t
+ * object for overlap.  @param a pointer to Annotation object with features.
  * @param n_feat pointer to integer giving the number of features that overlap.
- * @param m_feat pointer to integer giving the allocated size of the updated arrays @p feat and @p splice.
- * @param feat pointer to array of char arrays from @p a containing variant IDs.
- * @param splice integer array containing splice status for each overlapping feature in @p feat.
- * @return 0 if success, -1 if fail
+ * @param m_feat pointer to integer giving the allocated size of the updated
+ * arrays @p feat and @p splice.  @param feat pointer to array of char arrays
+ * from @p a containing variant IDs.  @param splice integer array containing
+ * splice status for each overlapping feature in @p feat.  @return 0 if
+ * success, -1 if fail
  */
-int overlap_bam1_feats(const sam_hdr_t *h, bam1_t *b, const Annotation *a, uint8_t *n_feat, uint8_t *m_feat, 
-        char ***feat, uint8_t **splice);
+int overlap_bam1_feats(const sam_hdr_t *h, bam1_t *b, const Annotation *a,
+        uint8_t *n_feat, uint8_t *m_feat, char ***feat, uint8_t **splice);
 
 /* Calculate whether a read is spliced, unspliced, or ambiguous.
  * 
