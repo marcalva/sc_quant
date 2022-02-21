@@ -21,9 +21,9 @@ typedef struct gc_node {
 // value in hash is a dummy head node with index=-1
 KHASH_INIT(gc, char*, gc_node, 1, kh_str_hash_func, kh_str_hash_equal);
 
-/* hold allele counts for barcodes */
+/* hold gene counts for barcodes */
 typedef struct {
-    str_map *gene_ix; // variants
+    str_map *gene_ix; // genes
     str_map *bc_ix; // barcodes
     khash_t(gc) *gcs; // counts per gene
                       // key is barcode ID string. Key is same memory as bc_ix. 

@@ -13,7 +13,7 @@ static void usage(FILE *fp, int exit_status){
     fprintf(fp, 
             "\n"
             "sc_quant v0.1.0: Generate counts from single-cell experiments\n"
-            "Usage:    sc_quant<command> [options]\n"
+            "Usage:    sc_quant <command> [options]\n"
             "\n"
             "Commands:\n"
             "  gc           Generate gene-barcode counts.\n"

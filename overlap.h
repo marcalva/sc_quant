@@ -64,10 +64,10 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
  * a1 must be less than a2, and b1 must be less than b2.
  * If a_strand and b_strand are opposite strands ('+' or '-'), return 0 overlap.
  * Otherwise, the strand is ignored.
- * the a and b regions are half open, with a2 and b2 open.
+ * the a and b regions are half open, with a2 and b2 non-inclusive
  *
  * @return Number of base pairs that overlap, or -1 on error.
  * */
-int bp_overlap(int64_t a1, int64_t a2, char a_strand, int64_t b1, int64_t b2, char b_strand);
+int64_t bp_overlap(int64_t a1, int64_t a2, char a_strand, int64_t b1, int64_t b2, char b_strand);
 
 #endif // OVERLAP_H

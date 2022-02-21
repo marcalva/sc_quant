@@ -101,6 +101,7 @@ int bc_gc_count(bc_gc *a, Records *recs){
             if (umi->best_rec == NULL) continue; // look at best rec call
             Rec *rec = umi->best_rec;
             int f, n_feat = rec->n_feat;
+            if (n_feat > 1) continue; // only count UMIs overlapping one gene
             for (f = 0; f < n_feat; ++f){
                 int32_t fix = rec->feat[f];
                 char *fid = str_map_str(recs->gene_ix, fix);
