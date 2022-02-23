@@ -26,25 +26,16 @@ void print_status_gc(const char* k, int i, const char *chr, int pos){
     fflush(stdout);
 }
 
-void print_status_gc2(const char* str){
-    time_t now;
-    time(&now);
-    char dt[20];
-    get_time(dt, 20);
-    fprintf(stdout, "%s: %s\n", dt, str);
-    fflush(stdout);
-}
-
 static void usage(FILE *fp, int exit_status){
     fprintf(fp, 
             "\n"
             "sc_quant v0.1.0: Generate counts from single-cell experiments\n"
-            "Usage:    sc_quant gc [options] --bam bamfile --gtf gtffile --out records. \n"
+            "Usage:    sc_quant gc [options] --bam bamfile --gtf gtffile --out outfile \n"
             "\n"
             "Options:\n"
             "  -b, --bam           Indexed BAM file.\n"
             "  -g, --gtf           GTF file.\n"
-            "  -o, --out           Output file prefix.\n"
+            "  -o, --out           Output file prefix [gc.].\n"
             "  -B, --bc-tag        BAM tag for barcode [CB].\n"
             "  -U, --umi-tag       BAM tag for UMI [UB].\n"
             "  -H, --nh-tag        BAM tag for the number of alignments of a read [NH].\n"
@@ -272,6 +263,10 @@ int gene_count(int argc, char *argv[]){
     /* set barcodes */
     if ( bc_set ){
         n_bc = add_bc2ix_file(records, bc_fn);
+        if (n_bc < 0){
+            ret = err_msg(1, 0, "could not read barcodes from %s\n", bc_fn);
+            goto cleanup;
+        }
         if ( verbose ){
             fprintf(stdout, "read %i barcodes from %s\n", n_bc, bc_fn);
             fflush(stdout);

@@ -211,6 +211,9 @@ int bc_ac_write(bc_ac *a, char *fn){
         }
         bci++;
     }
+    if (k != (bci - 1)){
+        fprintf(stdout, "k=%i bci=%i\n", k, bci);
+    }
     bgzf_close(fp);
 
     // variant file
@@ -219,8 +222,7 @@ int bc_ac_write(bc_ac *a, char *fn){
     if (ofn == NULL) return -1;
     fp = bgzf_open(ofn, "wg1");
     if (fp == NULL){
-        err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
-        return -1;
+        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
     }
     free(ofn);
 
@@ -238,8 +240,7 @@ int bc_ac_write(bc_ac *a, char *fn){
     if (ofn == NULL) return -1;
     fp = bgzf_open(ofn, "wg1");
     if (fp == NULL){
-        err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
-        return -1;
+        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
     }
     free(ofn);
 

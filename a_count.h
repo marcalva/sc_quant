@@ -48,6 +48,27 @@ int bc_ac_add_bc_map(bc_ac *a, str_map *sm);
 
 int bc_ac_count(bc_ac *a, Records *recs);
 
+/* Write barcode-allele counts to sparse matrix file
+ * The counts matrix is written in matrix market format 
+ * (https://math.nist.gov/MatrixMarket/formats.html).
+ *
+ * The columns correspond to
+ *  1: row index (p)
+ *  2: column index (j)
+ *  3: ref allele counts 
+ *  4: alt allele counts
+ *  5: other allele counts
+ *
+ * The row and column indexes are 1-based (start at 1) and 
+ * correspond to the line of the variant (row) and barcode (col) files.
+ *
+ * @param a pointer to bc_ac struct with allele counts.
+ * @param fn file name prefix. The output is written into 
+ *  counts:   fn + "ac.mtx.gz"
+ *  variants: fn + "ac.var.txt.gz"
+ *  barcodes: fn + "ac.barcodes.txt.gz"
+ *  @return -1 on error, 0 on success.
+ */
 int bc_ac_write(bc_ac *a, char *fn);
 
 #endif // A_COUNT_H

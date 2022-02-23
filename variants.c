@@ -298,7 +298,10 @@ int is_gt_valid(bcf_hdr_t *vcf_hdr, bcf1_t *b){
     ngt = bcf_get_format_values(vcf_hdr, b, "GT", &gt_arr, &ndst, BCF_HT_INT); // GT must be given as BCF_HT_INT
 
     // check if tag is present
-    if (ngt < 0) return 0;
+    if (ngt < 0){
+        free(gt_arr);
+        return 0;
+    }
     int n_val = ngt / n_samples;
 
     // check max n alleles
