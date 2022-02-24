@@ -157,7 +157,8 @@ float **ap_array_gt(GenomeVar *gv, bcf_hdr_t *vcf_hdr, char **ids, int ni, char 
  * @param vars pointer to array of Var pointers.
  * @param vars_m Pointer to integer that contains the length of the vars array.
  *
- * @return number of overlapping variants in @p vars, or -1 on error.
+ * @return Number of overlapping variants in @p vars.
+ *  -1 if the reference is not found in GenomeVar. -2 on error
  *
  * The @p vars array must be an allocated array, or NULL. The @p vars_len 
  * gives the length of the @p vars array. The function can increase the size of 

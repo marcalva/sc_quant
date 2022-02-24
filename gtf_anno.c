@@ -622,6 +622,7 @@ Annotation *read_from_gtf(char *file, int basic){
     if (fp == 0){
         err_msg(-1, 0, "read_from_gtf: could not open GTF file %s", file);
         destroy_anno(a);
+        bgzf_close(fp);
         return NULL;
     }
 
@@ -642,6 +643,7 @@ Annotation *read_from_gtf(char *file, int basic){
             err_msg(-1, 0, "read_from_gtf: failed to parse GTF line\n%s", line.s);
             destroy_gtf_line(gl);
             destroy_anno(a);
+            bgzf_close(fp);
             return NULL;
         }
         parse_gtf_attr(gl);
@@ -660,6 +662,7 @@ Annotation *read_from_gtf(char *file, int basic){
             err_msg(-1, 0, "read_from_gtf: failed to add GTF line\n%s", line.s);
             destroy_gtf_line(gl);
             destroy_anno(a);
+            bgzf_close(fp);
             return NULL;
         }
 

@@ -595,18 +595,18 @@ int vars_from_region(GenomeVar *gv, const char* ref, hts_pos_t beg,
         hts_pos_t end, Var ***vars, int *vars_m){
     int tid = str_map_ix(gv->chrm_ix, (char *)ref);
     if (tid < 0)
-        return err_msg(-1, 0, "vars_from_region: chromosome %s not found", ref);
+        return(-1);
 
     double reg_len = (double)end - (double)beg;
     if (reg_len < 0)
-        return err_msg(-1, 0, "vars_from_region: end (%i) < beg (%i)", beg, end);
+        return err_msg(-2, 0, "vars_from_region: end (%i) < beg (%i)", beg, end);
 
     int nvars = 0;
     if (*vars_m <= 0){
         *vars_m = 1;
         *vars = (Var **)realloc(*vars, *vars_m * sizeof(Var *));
         if (*vars == NULL)
-            return err_msg(-1, 0, "vars_from_region: %s", strerror(errno));
+            return err_msg(-2, 0, "vars_from_region: %s", strerror(errno));
     }
 
     uint16_t list[MAX_BIN];
@@ -619,7 +619,7 @@ int vars_from_region(GenomeVar *gv, const char* ref, hts_pos_t beg,
             bcf1_t *b = v->b;
             int ovrlp = bp_overlap((int)beg, (int)end, '.', b->pos, b->pos + b->rlen, '.');
             if (ovrlp < 0)
-                return err_msg(-1, 0, "vars_from_region: failed to get bp_overlap");
+                return err_msg(-2, 0, "vars_from_region: failed to get bp_overlap");
 
             double frac_ovrlp = (double)ovrlp / reg_len;
             if (frac_ovrlp == 0.0) continue;
@@ -627,7 +627,7 @@ int vars_from_region(GenomeVar *gv, const char* ref, hts_pos_t beg,
                 *vars_m = (*vars_m)<<1;
                 *vars = (Var **)realloc(*vars, (*vars_m) * sizeof(Var *));
                 if (*vars == NULL)
-                    return err_msg(-1, 0, "vars_from_region: %s", strerror(errno));
+                    return err_msg(-2, 0, "vars_from_region: %s", strerror(errno));
             }
             (*vars)[nvars++] = v;
         }

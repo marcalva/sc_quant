@@ -170,7 +170,7 @@ int allele_count(int argc, char *argv[]){
             case 'c': bc_fn = strdup(optarg); break;
             case 'r': region = strdup(optarg); region_set = 1; break;
             case 'V': verbose = 1; break;
-            default: exit(EXIT_FAILURE);
+            default: ret = EXIT_FAILURE; goto cleanup;
         }
     }
 
@@ -246,6 +246,10 @@ int allele_count(int argc, char *argv[]){
     bcf_hdr_t *vcf_hdr = sr->readers[0].header;
 
     gv = vcf2gv(sr, vcf_hdr);
+    if (verbose){
+        fprintf(stdout, "added %i variants\n", gv->var_ix->n);
+        fflush(stdout);
+    }
     /* */
 
     /* Open BAM file */
@@ -264,6 +268,19 @@ int allele_count(int argc, char *argv[]){
         ret = err_msg(1, 0, "could not load index for BAM file %s", bamfn);
         goto cleanup;
     }
+    /* */
+
+    /* get overlapping chromosomes */
+    int *t1, *t2;
+    int n_ovrlp = ovrlp_tid(bam_hdr, vcf_hdr, &t1, &t2);
+    if (n_ovrlp < 0){
+        ret = EXIT_FAILURE;
+        goto cleanup;
+    }
+    if (n_ovrlp == 0)
+        err_msg(1, 1, "no chromosomes overlap between BAM and VCF files\n");
+    free(t1);
+    free(t2);
     /* */
 
     /* Set BAM iterator to region */
@@ -396,18 +413,14 @@ cleanup:
     if (bam) sam_close(bam);
     if (bam_idx) hts_idx_destroy(bam_idx);
 
-    hts_itr_destroy(bam_itr);
-    bam_destroy1(bam_r);
-    if (sr) bcf_sr_destroy(sr);
-    sam_hdr_destroy(bam_hdr);
-    if (bam) sam_close(bam);
-    if (bam_idx) hts_idx_destroy(bam_idx);
-
     free(feat); 
     free(splice);
     free(var); 
     free(base); 
     free(qual);
+    free(bamfn);
+    free(bc_fn);
+    if (region_set) free(region);
 
     return(ret);
 }

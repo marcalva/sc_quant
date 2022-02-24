@@ -134,6 +134,8 @@ int bc_ac_count(bc_ac *a, Records *recs){
             }
         }
     }
+    fprintf(stdout, "added %i barcodes during count\n", kh_size(a->acs));
+    fprintf(stdout, "there are %i barcodes in records\n", kh_size(recs->bc));
     return 0;
 }
     
@@ -178,8 +180,8 @@ int bc_ac_write(bc_ac *a, char *fn){
     ret = bgzf_write(fp, "\n", 1);
     for (i = 0; i < 3; ++i) free(strs[i]);
     if (ret < 0){
-        err_msg(-1, 0, "bc_ac_write: failed to write to file %s", ofn);
-        return -1;
+        bgzf_close(fp);
+        return err_msg(-1, 0, "bc_ac_write: failed to write to file %s", ofn);
     }
 
     // write counts
@@ -190,9 +192,8 @@ int bc_ac_write(bc_ac *a, char *fn){
 
         khint_t k_bc = kh_get(ac, a->acs, bc_key);
         if (k_bc == kh_end(a->acs)){
-            err_msg(-1, 0, "bc_ac_write: could not find barcode %s. "
-                    "Make sure bc_ac is initialized properly", bc_key);
-            return -1;
+            bci++;
+            continue;
         }
         ac_node *n = &(kh_val(a->acs, k_bc));
         for (n = n->next; n; n = n->next){
@@ -240,6 +241,7 @@ int bc_ac_write(bc_ac *a, char *fn){
     if (ofn == NULL) return -1;
     fp = bgzf_open(ofn, "wg1");
     if (fp == NULL){
+        bgzf_close(fp);
         return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
     }
     free(ofn);

@@ -312,6 +312,13 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
 
     int32_t tid = b->core.tid;
     const char *ref = sam_hdr_tid2name(h, (int)tid);
+
+    // check chromosome overlap
+    int gv_ix = str_map_ix(gv->chrm_ix, (char *)ref);
+    if (gv_ix < 0){
+        *n_var = 0;
+        return(0);
+    }
     
     hts_pos_t b_beg = b->core.pos;
     hts_pos_t b_end = bam_endpos(b);

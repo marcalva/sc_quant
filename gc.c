@@ -228,11 +228,20 @@ int gene_count(int argc, char *argv[]){
     records = init_records();
 
     /* Read in GTF file */
+    if (verbose){
+        fprintf(stdout, "reading annotations from %s\n", gtffn);
+        fflush(stdout);
+    }
     a = read_from_gtf(gtffn, tx_basic);
     if (a == NULL){
         ret = EXIT_FAILURE;
         goto cleanup;
     }
+    if (verbose){
+        fprintf(stdout, "read %i genes\n", a->gene_ix->n);
+        fflush(stdout);
+    }
+
 
     /* Read in BAM file */
     bam = sam_open(bamfn, "r");
