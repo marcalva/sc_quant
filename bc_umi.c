@@ -1064,7 +1064,7 @@ Records *read_records_file(char *fn, int file_list, int verbose){
         if (recsfns == NULL) return NULL;
         int k;
         for (k = 0; k < nfn; ++k){
-            if (verbose) fprintf(stdout, "samba: reading records from %s\n", recsfns[k]);
+            if (verbose) fprintf(stdout, "read_records_file: reading records from %s\n", recsfns[k]);
             if ((read_records_bn(recsfns[k], records)) < 0) return NULL;
         }
         for (k = 0; k < nfn; ++k) free(recsfns[k]);

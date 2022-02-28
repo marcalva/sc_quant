@@ -11,10 +11,7 @@ ac_node *init_ac_node(){
         return NULL;
     }
 
-    n->ix = -1;
-    int i;
-    for (i = 0; i < N_ALLELE; ++i) n->counts[i] = 0;
-    n->next = NULL;
+    ac_node_set_zero(n);
     return n;
 }
 
@@ -115,7 +112,6 @@ int bc_ac_count(bc_ac *a, Records *recs){
                             "Make sure bc_ac is initialized properly", vid);
                     return -1;
                 }
-                vid = str_map_str(a->var_ix, vix);
 
                 ac_node *n = hn;
                 while (n->next != NULL && vix >= n->next->ix)
@@ -129,13 +125,17 @@ int bc_ac_count(bc_ac *a, Records *recs){
                     n->next = nn;
                     n = nn;
                     a->n_nz += 1;
+                } 
+                else if (n->ix == vix){
+                    n->counts[rec->base[v]] += 1;
                 }
-                n->counts[rec->base[v]] += 1;
+                else{
+                    return err_msg(-1, 0, "bc_ac_count: improper add to sorted list\n");
+                }
             }
         }
     }
-    fprintf(stdout, "added %i barcodes during count\n", kh_size(a->acs));
-    fprintf(stdout, "there are %i barcodes in records\n", kh_size(recs->bc));
+
     return 0;
 }
     
@@ -146,45 +146,59 @@ int bc_ac_write(bc_ac *a, char *fn){
         return -1;
     }
 
-    BGZF *fp;
-    char *ofn = NULL;
+    BGZF *fp[3];
+    char *ofn[3];
     int ret;
 
     // ac matrix file
-    char mtx_fn[] = "ac.mtx.gz";
-    ofn = strcat2((const char*)fn, (const char*)mtx_fn);
-    if (ofn == NULL) return -1;
-    fp = bgzf_open(ofn, "wg1");
-    if (fp == NULL){
-        err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
-        return -1;
+    char mtx_fn[3][14] = {"ac.ref.mtx.gz", "ac.alt.mtx.gz", "ac.oth.mtx.gz"};
+    int i;
+    for (i = 0; i < 3; ++i){
+        ofn[i] = strcat2((const char*)fn, (const char*)mtx_fn[i]);
+        if (ofn[i] == NULL) return -1;
     }
-    free(ofn);
+    for (i = 0; i < 3; ++i){
+        fp[i] = bgzf_open(ofn[i], "wg1");
+        if (fp[i] == NULL){
+            err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn[i]);
+            return -1;
+        }
+    }
+    for (i = 0; i < 3; ++i) free(ofn[i]);
 
-    char mtx_hdr[] = "%%MatrixMarket matrix coordinate integer general\n";
-    ret = bgzf_write(fp, mtx_hdr, strlen(mtx_hdr));
-    ret = bgzf_write(fp, "%\n", 2);
+    // get strings for header
     size_t len;
-    char *strs[5];
+    char *strs[3];
 
     // var bc non-zero lengths
     strs[0] = int2str((int)a->var_ix->n, &len);
     strs[1] = int2str((int)a->bc_ix->n, &len);
     strs[2] = int2str((int)a->n_nz, &len);
 
-    int i;
+    // write header
+    char mtx_hdr[] = "%%MatrixMarket matrix coordinate integer general\n";
     for (i = 0; i < 3; ++i){
-        if (i) ret = bgzf_write(fp, delim, 1);
-        ret = bgzf_write(fp, strs[i], strlen(strs[i]));
+        ret = bgzf_write(fp[i], mtx_hdr, strlen(mtx_hdr));
+        ret = bgzf_write(fp[i], "%\n", 2);
+
+        int j;
+        for (j = 0; j < 3; ++j){
+            if (j) ret = bgzf_write(fp[i], delim, 1);
+            ret = bgzf_write(fp[i], strs[j], strlen(strs[j]));
+        }
+        ret = bgzf_write(fp[i], "\n", 1);
+        if (ret < 0) break;
     }
-    ret = bgzf_write(fp, "\n", 1);
     for (i = 0; i < 3; ++i) free(strs[i]);
     if (ret < 0){
-        bgzf_close(fp);
-        return err_msg(-1, 0, "bc_ac_write: failed to write to file %s", ofn);
+        for (i = 0; i < 3; ++i) bgzf_close(fp[i]);
+        return err_msg(-1, 0, "bc_ac_write: failed to write to file %s", fn);
     }
 
     // write counts
+    int il; // intstrp string length
+    size_t intstrp_m = 1; // intstrp allocated size
+    char *intstrp = malloc(sizeof(char) * intstrp_m);
     int k, bci = 1;
     for (k = 0; k < a->bc_ix->n; ++k){
         char *bc_key = str_map_str(a->bc_ix, k);
@@ -198,61 +212,76 @@ int bc_ac_write(bc_ac *a, char *fn){
         ac_node *n = &(kh_val(a->acs, k_bc));
         for (n = n->next; n; n = n->next){
             int vix = n->ix + 1;
-            strs[0] = int2str(vix, &len);
-            strs[1] = int2str(bci, &len);
-            strs[2] = int2str((int)n->counts[REF], &len);
-            strs[3] = int2str((int)n->counts[ALT], &len);
-            strs[4] = int2str((int)n->counts[OTHER], &len);
-            for (i = 0; i < 5; ++i){
-                if (i) ret = bgzf_write(fp, delim, 1);
-                ret = bgzf_write(fp, strs[i], strlen(strs[i]));
+
+            for (i = 0; i < 3; ++i){
+                if ((il = int2strp(vix, &intstrp, &intstrp_m)) < 0) return -1;
+                ret = bgzf_write(fp[i], intstrp, il);
+
+                ret = bgzf_write(fp[i], delim, 1);
+
+                if ((il = int2strp(k+1, &intstrp, &intstrp_m)) < 0) return -1;
+                ret = bgzf_write(fp[i], intstrp, il);
+
+                ret = bgzf_write(fp[i], delim, 1);
             }
-            ret = bgzf_write(fp, "\n", 1);
-            for (i = 0; i < 5; ++i) free(strs[i]);
+
+            if ((il = int2strp((int)n->counts[REF], &intstrp, &intstrp_m)) < 0) return -1;
+            ret = bgzf_write(fp[0], intstrp, il);
+
+            if ((il = int2strp((int)n->counts[ALT], &intstrp, &intstrp_m)) < 0) return -1;
+            ret = bgzf_write(fp[1], intstrp, il);
+
+            if ((il = int2strp((int)n->counts[OTHER], &intstrp, &intstrp_m)) < 0) return -1;
+            ret = bgzf_write(fp[2], intstrp, il);
+            
+            for (i = 0; i < 3; ++i)
+                ret = bgzf_write(fp[i], "\n", 1);
         }
         bci++;
     }
     if (k != (bci - 1)){
         fprintf(stdout, "k=%i bci=%i\n", k, bci);
     }
-    bgzf_close(fp);
+    for (i = 0; i < 3; ++i) bgzf_close(fp[i]);
+
+    free(intstrp);
 
     // variant file
     char var_fn[] = "ac.var.txt.gz";
-    ofn = strcat2((const char*)fn, (const char*)var_fn);
-    if (ofn == NULL) return -1;
-    fp = bgzf_open(ofn, "wg1");
-    if (fp == NULL){
-        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
+    ofn[0] = strcat2((const char*)fn, (const char*)var_fn);
+    if (ofn[0] == NULL) return -1;
+    fp[0] = bgzf_open(ofn[0], "wg1");
+    if (fp[0] == NULL){
+        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn[0]);
     }
-    free(ofn);
+    free(ofn[0]);
 
     for (k = 0; k < a->var_ix->n; ++k){
         char *var_key = str_map_str(a->var_ix, k);
         if (var_key == NULL) continue;
-        ret = bgzf_write(fp, var_key, strlen(var_key));
-        ret = bgzf_write(fp, "\n", 1);
+        ret = bgzf_write(fp[0], var_key, strlen(var_key));
+        ret = bgzf_write(fp[0], "\n", 1);
     }
-    bgzf_close(fp);
+    bgzf_close(fp[0]);
 
     // barcode file
     char bc_fn[] = "ac.barcodes.txt.gz";
-    ofn = strcat2((const char*)fn, (const char*)bc_fn);
-    if (ofn == NULL) return -1;
-    fp = bgzf_open(ofn, "wg1");
-    if (fp == NULL){
-        bgzf_close(fp);
-        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn);
+    ofn[0] = strcat2((const char*)fn, (const char*)bc_fn);
+    if (ofn[0] == NULL) return -1;
+    fp[0] = bgzf_open(ofn[0], "wg1");
+    if (fp[0] == NULL){
+        bgzf_close(fp[0]);
+        return err_msg(-1, 0, "bc_ac_write: failed to open file %s", ofn[0]);
     }
-    free(ofn);
+    free(ofn[0]);
 
     for (k = 0; k < a->bc_ix->n; ++k){
         char *bc_key = str_map_str(a->bc_ix, k);
         if (bc_key == NULL) continue;
-        ret = bgzf_write(fp, bc_key, strlen(bc_key));
-        ret = bgzf_write(fp, "\n", 1);
+        ret = bgzf_write(fp[0], bc_key, strlen(bc_key));
+        ret = bgzf_write(fp[0], "\n", 1);
     }
-    bgzf_close(fp);
+    bgzf_close(fp[0]);
 
     return 0;
 }

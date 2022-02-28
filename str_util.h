@@ -13,6 +13,13 @@
 #include "htslib/khash.h"
 #include "htslib/bgzf.h"
 
+/* log message
+ * 
+ * prints a message like printf but with the date and time 
+ * prepended.
+ */
+void log_msg(const char *fmt, ...);
+
 // error message
 // @param ret integer for function to return
 // @param type 0 for error, 1 for warning
@@ -187,18 +194,19 @@ char *double2str(double x, size_t *len);
 /* place string representation of an int into a char array
  *
  * convert the int to a string, and place in an array 
- * pointed to by the pointer pointed to by strp.
+ * pointed to by the pointer pointed to by strp. Places 
+ * the length of the string in @p len
  *
- * @param x int to format to char array
- * @param strp double pointer to char array
- * @param len pointer to size_t allocated size of array 
- *  pointed to by the double pointer of strp
- * @return the length of the string, including the null byte.
+ * @param x int to format to char array.
+ * @param strp pointer to char array.
+ * @param strp_size pointer to size_t. Stores the allocated size of the 
+ * char array pointed to by strp.
+ * @return the string length, including the null byte.
  *
  * On error, returns -1, and the pointer pointed to by strp may be NULL 
  * if a memory error is encountered.
  */
-int int2strp(int x, char **strp, size_t *len);
+int int2strp(int x, char **strp, size_t *strp_size);
 
 /* Concatenate two strings by allocating memory.
  * Returned char array must be freed.

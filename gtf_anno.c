@@ -286,6 +286,10 @@ int gtf_gene2anno(Annotation *a, gtf_line *gl){
     }
     char *gene_name = get_attr_val(gl, GENE_NAME);
     char *gene_type = get_attr_val(gl, GENE_TYPE);
+    if (gene_name == NULL || gene_type == NULL){
+        return err_msg(-1, 0, "gtf_gene2anno: gtf line must have %s and %s "
+                "attributes\n", GENE_NAME, GENE_TYPE);
+    }
 
     int gix, found = 0;
     if ( (gix = add2str_map(a->gene_ix, (const char*)gene_id, &found)) < 0 ) return -1;
@@ -754,9 +758,8 @@ int feats_from_region_p(const Annotation *a, const char* ref,
 
 
 /****************************
- * Tests
+ * summary functions
  ****************************/
-
 
 int n_feat(Annotation *a, int *n_gene, int *n_iso, int *n_exon){
     *n_gene = 0;

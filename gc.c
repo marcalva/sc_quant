@@ -17,13 +17,8 @@
 #include "bc_umi.h"
 #include "overlap.h"
 
-void print_status_gc(const char* k, int i, const char *chr, int pos){
-    time_t now;
-    time(&now);
-    char dt[20];
-    get_time(dt, 20);
-    fprintf(stdout, "%s: processed %i %s through %s:%i\n", dt, i, k, chr, pos);
-    fflush(stdout);
+static void print_status_gc(const char* k, int i, const char *chr, int pos){
+    log_msg("processed %i %s through %s:%i", i, k, chr, pos);
 }
 
 static void usage(FILE *fp, int exit_status){
@@ -39,8 +34,7 @@ static void usage(FILE *fp, int exit_status){
             "  -B, --bc-tag        BAM tag for barcode [CB].\n"
             "  -U, --umi-tag       BAM tag for UMI [UB].\n"
             "  -H, --nh-tag        BAM tag for the number of alignments of a read [NH].\n"
-            "  -m, --max-nh        Only process reads with a maximum of this many alignments [10]. Set to 0 to ignore.\n"
-            "  -p, --min-phredq    Minimum base phred quality score in read [30].\n"
+            "  -m, --max-nh        Only process reads with a maximum of this many alignments [1]. Set to 0 to ignore.\n"
             "  -t, --tx-basic      Read only transcripts tagged as 'basic' in the GTF file.\n"
             "  -c, --barcodes      File containing list of barcode IDs, one per line.\n"
             "  -r, --region        Region (hts format), for example 'chr21,chr21:10-,chr21-10-20'.\n"
@@ -64,7 +58,6 @@ int gene_count(int argc, char *argv[]){
         {"umi-tag", required_argument, NULL, 'U'},
         {"nh-tag", required_argument, NULL, 'H'}, 
         {"max-nh", required_argument, NULL, 'm'}, 
-        {"min-phredq", required_argument, NULL, 'p'},
         {"tx-basic", no_argument, NULL, 't'}, 
         {"barcodes", required_argument, NULL, 'c'},
         {"region", required_argument, NULL, 'r'},
@@ -80,9 +73,8 @@ int gene_count(int argc, char *argv[]){
     char nh_tag[] = "NH";
     char *bamfn = NULL;
     char *gtffn = NULL;
-    char *outfn = "samba.";
-    int min_phred = 30;
-    int max_nh = 10;
+    char *outfn = "gc.";
+    int max_nh = 1;
     int tx_basic = 0;
     char *p_end = NULL;
     int bc_set = 0;
@@ -153,15 +145,6 @@ int gene_count(int argc, char *argv[]){
                                   optarg, strerror(errno));
                       }
                       break;
-            case 'p':
-                      errno = 0;
-                      min_phred = (int)strtol(optarg, &p_end, 10);
-                      if (min_phred == 0 && errno > 0){
-                          return err_msg(EXIT_FAILURE, 0, 
-                                  "plp: could not convert --min-phred %s to int: %s", 
-                                  optarg, strerror(errno));
-                      }
-                      break;
             case 't':
                       tx_basic = 1;
                       break;
@@ -213,7 +196,6 @@ int gene_count(int argc, char *argv[]){
         fprintf(stdout, "    UMI tag:         %s\n", umi_tag);
         fprintf(stdout, "    NH tag:          %s\n", nh_tag);
         fprintf(stdout, "    Max NH:          %i\n", max_nh);
-        fprintf(stdout, "    Min. phred:      %i\n", min_phred);
         if ( bc_set ){
             fprintf(stdout, "    Barcode file:    %s\n", bc_fn);
         }
@@ -228,19 +210,15 @@ int gene_count(int argc, char *argv[]){
     records = init_records();
 
     /* Read in GTF file */
-    if (verbose){
-        fprintf(stdout, "reading annotations from %s\n", gtffn);
-        fflush(stdout);
-    }
+    if (verbose)
+        log_msg("reading annotations from %s", gtffn);
     a = read_from_gtf(gtffn, tx_basic);
     if (a == NULL){
         ret = EXIT_FAILURE;
         goto cleanup;
     }
-    if (verbose){
-        fprintf(stdout, "read %i genes\n", a->gene_ix->n);
-        fflush(stdout);
-    }
+    if (verbose)
+        log_msg("read %i genes", a->gene_ix->n); 
 
 
     /* Read in BAM file */
@@ -273,13 +251,11 @@ int gene_count(int argc, char *argv[]){
     if ( bc_set ){
         n_bc = add_bc2ix_file(records, bc_fn);
         if (n_bc < 0){
-            ret = err_msg(1, 0, "could not read barcodes from %s\n", bc_fn);
+            ret = err_msg(1, 0, "could not read barcodes from %s", bc_fn);
             goto cleanup;
         }
-        if ( verbose ){
-            fprintf(stdout, "read %i barcodes from %s\n", n_bc, bc_fn);
-            fflush(stdout);
-        }
+        if ( verbose )
+            log_msg("read %i barcodes from %s", n_bc, bc_fn);
     }
     /* */
 
@@ -299,13 +275,14 @@ int gene_count(int argc, char *argv[]){
     /* */
             
     // Loop over BAM records/
-    fprintf(stdout, "processing alignments in %s\n", bamfn); fflush(stdout);
+
+    log_msg("processing alignments in %s", bamfn);
     int iter_ret;
     bam_r = bam_init1();
     while ( (iter_ret = sam_itr_next(bam, bam_itr, bam_r)) >= 0){
-        if ( (verbose) && (n_reads % (int)1e6 == 0)){
+        if ( (verbose) && (n_reads % (int)10e6 == 0)){
             const char *chr = sam_hdr_tid2name(bam_hdr, bam_r->core.tid);
-            print_status_gc("alignments", n_reads, chr, (int)(bam_r->core.pos+1));
+            print_status_gc("million alignments", n_reads/1e6, chr, (int)(bam_r->core.pos+1));
         }
         n_reads++;
 
@@ -358,22 +335,21 @@ int gene_count(int argc, char *argv[]){
 
     if (verbose){
         int nrec = n_recs(records);
-        fprintf(stdout, "stored %i records from %i UMIs in %i barcodes\n", 
+        log_msg("stored %i records from %i UMIs in %i barcodes", 
                 nrec, records->umi_ix->n, records->bc_ix->n);
-        fflush(stdout);
     }
 
     // if (verbose) print_summary(records);
 
     // call UMIs
-    if (verbose) fprintf(stdout, "filtering UMI reads\n");
+    if (verbose) log_msg("filtering UMI reads");
     fflush(stdout);
     call_umis(records);
 
     // gene counts
     g_counts = init_bc_gc();
 
-    if (verbose) fprintf(stdout, "counting UMIs\n");
+    if (verbose) log_msg("counting UMIs");
     if (bc_gc_add_gene_map(g_counts, records->gene_ix) < 0){
         ret = EXIT_FAILURE;
         goto cleanup;
@@ -411,7 +387,7 @@ cleanup:
     free(base); 
     free(qual);
 
-    if (verbose) fprintf(stdout, "finished counting UMIs\n");
+    if (verbose) log_msg("finished counting UMIs");
 
     return(ret);
 }

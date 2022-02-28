@@ -8,6 +8,31 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <time.h>
+
+void get_time(char dt[], int len){
+    time_t now;
+    time(&now);
+    struct tm *local = localtime(&now);
+    strftime(dt, len, "%Y-%m-%d %H:%M:%S", local);
+}
+
+void log_msg(const char *fmt, ...){
+
+    time_t now;
+    time(&now);
+    char dt[20];
+    get_time(dt, 20);
+    fprintf(stdout, "%s: ", dt);
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stdout, fmt, args);
+    va_end(args);
+
+    fprintf(stdout, "\n");
+    fflush(stdout);
+}
 
 int err_msg(int ret, int type, const char *fmt, ...){
 
@@ -352,21 +377,20 @@ char *int2str(int x, size_t *len){
     return str;
 }
 
-int int2strp(int x, char **strp, size_t *len){
-    int size;
+int int2strp(int x, char **strp, size_t *strp_size){
+    int xlen;
 
-    size = snprintf(*strp, *len, "%i", x);
-    if (size < 0){
-        err_msg(-1, 0, "int2strp: %s", strerror(errno));
-        return size;
-    } else if ( size >= *len ){
-        *len = size + 1;
-        *strp = realloc(*strp, *len * sizeof(char));
+    if ( (xlen = snprintf(*strp, *strp_size, "%i", x)) >= *strp_size ){
+        *strp_size = xlen + 1;
+        *strp = realloc(*strp, *strp_size * sizeof(char));
         if (*strp == NULL)
             return err_msg(-1, 0, "int2strp: %s", strerror(errno));
-        size = snprintf(*strp, *len, "%i", x);
+        xlen = snprintf(*strp, *strp_size, "%i", x);
     }
-    return size;
+    if (xlen < 0)
+        return err_msg(-1, 0, "int2strp: %s", strerror(errno));
+
+    return xlen;
 }
 
 char *double2str(double x, size_t *len){
@@ -398,13 +422,6 @@ char *strcat2(const char *str1, const char *str2){
     strcpy(str3, str1);
     strcat(str3, str2);
     return str3;
-}
-
-void get_time(char dt[], int len){
-    time_t now;
-    time(&now);
-    struct tm *local = localtime(&now);
-    strftime(dt, len, "%Y-%m-%d %H:%M:%S", local);
 }
 
 // concatenate strings

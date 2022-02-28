@@ -37,19 +37,26 @@ int overlap_bam1_feats(const sam_hdr_t *h, bam1_t *b, const Annotation *a,
  * 
  * @param b pointer to bam record.
  * @param gene pointer to gene.
- * @param ret set to 0 on success, -1 on error
+ * @param ret set to 0 on success, -1 on error after calling.
+ *
  * @return One of SPLICE UNSPLICE AMBIG
  */
 uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret);
 
-/* Overlap a bam1_t read with variants.
+/* Overlap a bam1_t read with single nucleotide variants.
+ *
+ * The variables n_var, m_var, var, base, qual, and min_qual are all 
+ * updated after calling this function.
  *
  * @param h pointer to header for bam record @p b.
  * @param b pointer to bam1_t object for overlap.
  * @param gv pointer to GenomeVar object with variants for overlap.
- * @param n_var pointer to integer giving the number of variants that overlap.
- * @param m_var pointer to integer giving the allocated size of the updated @p var @p base and @p qual arrays.
- * @param var pointer to array of char arrays containing the IDs of the overlapping variants.
+ * @param n_var pointer to integer giving the number of variants that 
+ *  overlap. The value is updated after calling.
+ * @param m_var pointer to integer giving the allocated size of the 
+ *  updated @p var @p base and @p qual arrays.
+ * @param var pointer to array of char arrays containing the IDs of 
+ *  the overlapping variants.
  * @param base pointer to integer array containing the base calls for each variant.
  * @param qual pointer to integer array containing the quality of the base calls for each variant.
  * @param min_qual only return overlapping variants that have a base quality score of at least this value.

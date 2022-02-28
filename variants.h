@@ -61,12 +61,13 @@ typedef struct {
  *
  * @param h pointer to VCF header object.
  * @param b pointer to bcf1_t object.
+ * @param delim delimiter between fields
  *
  * @return pointer to char that contains the NULL terminated variant ID string.
  * variant ID is of the format CHRM\tPOS\tID\tREF\tALT. If there are multiple 
  * ALT alleles, they are separated by commas.
  */
-char *var_id(const bcf_hdr_t *h, bcf1_t *b);
+char *var_id(const bcf_hdr_t *h, bcf1_t *b, char delim);
 
 /* get SNP allele
  *
@@ -169,19 +170,6 @@ int vars_from_region(GenomeVar *gv, const char* ref, hts_pos_t beg,
         hts_pos_t end, Var ***vars, int *vars_m);
 
 int n_snp(GenomeVar *gv, int *n_snp);
-
-void print_dose(double **dose, char **var_ids, int dose_len, int nsamples);
-
-void print_bcf_hdr(bcf_hdr_t *h);
-
-void print_var(GenomeVar *gv, const bcf_hdr_t *vcf_hdr);
-
-int test_vcf(char *vcffn);
-
-/*
- *
- *
- */
 
 #endif // VARIANTS_H
 

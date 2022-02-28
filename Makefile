@@ -22,7 +22,7 @@ LDFLAGS = $(HTSLIB_LIBS)
 sc_quant : $(OBJS) $(HTSLIB)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(SCLIBS)
 
-%.o: %.c
+%.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $< 
 
 # for specific configuration but htslib.mk seems to work well

@@ -226,6 +226,7 @@ int parse_gtf_attr(gtf_line *g);
  * @param g pointer to gtf_line object
  * @param key char array of key of GTF attribute
  * @return char array of the first occurence of the key's value.
+ *  NULL if the attribute is not found.
  */
 char *get_attr_val(gtf_line *g, char *key);
 
@@ -285,7 +286,7 @@ static inline int feats_from_region(const Annotation *a, const char* ref, hts_po
 }
 
 /****************************
- * Tests
+ * Summary functions
  ****************************/
 
 int n_feat(Annotation *a, int *n_gene, int *n_iso, int *n_exon);

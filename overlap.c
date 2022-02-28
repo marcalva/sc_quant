@@ -73,26 +73,12 @@ int overlap_bam1_feats(const sam_hdr_t *h, bam1_t *b, const Annotation *a, uint8
 
     free(genes);
 
-    return(0);
+    return 0;
 }
 
 /* 
  * Detect whether a bam record is spliced. 
- * The record must overlap a splice junction and 
- * only overlap exons.
- *
- * A record overlaps an annotated 
- * splice junction if the beginning and end of any 
- * 'N' CIGAR tag is equal to the base after the end 
- * of one exon and the base before the start of the 
- * next exon, respectively.
- *
- * If a record only overlaps exons but doesn't 
- * overlap a splice junction, it is ambiguous.
- *
- * If a record has any overlap outside of exons, 
- * it is considered intronic.
- * 
+ * Assumes the bam alignment and gene lie in the same chromosome.
  */
 uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
     *ret = 0;
@@ -113,13 +99,14 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
     // overlap of read segment that consumes query and reference (CQR segment)
     double *iro = calloc(n_iso, sizeof(double)); // length of CQR segment that overlaps intron
     double *ero = calloc(n_iso, sizeof(double)); // length of CQR segment that overlaps exon
-    double *rl = calloc(n_iso, sizeof(double)); // length of CQR segment
+    double *rl = calloc(n_iso, sizeof(double)); // length of CQR segment that overlaps the isoform
     double *pi = calloc(n_iso, sizeof(double)); // percent of CQR segment that overlaps intron
     double *pe = calloc(n_iso, sizeof(double)); // percent of CQR segment that overlaps exon
+    double *pt = calloc(n_iso, sizeof(double)); // percent of CQR segment that overlaps the isoform
     uint8_t *sj = calloc(n_iso, sizeof(uint8_t)); // splice junctions. Set to 1 if alignment overlaps splice juction. 0 otherwise
 
     if (iro == NULL || ero == NULL || rl == NULL || pe == NULL || sj == NULL){
-        return err_msg(-1, 0, "bam1_spliced: %s", strerror(errno));
+        err_msg(-1, 0, "bam1_spliced: %s", strerror(errno));
         *ret = -1;
         return 0;
     }
@@ -131,7 +118,29 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
         rl[i] = 0;
         pe[i] = 0;
         pi[i] = 0;
+        pt[i] = 0;
         sj[i] = 0;
+    }
+
+    char strand = '+';
+    if (bam_is_rev(b)) strand = '-';
+
+    uint32_t *cigar_raw = bam_get_cigar(b);
+    uint32_t n_cigar = b->core.n_cigar;
+
+    // pos is 0-based leftmost base of first CIGAR op that consumes reference.
+    hts_pos_t pos = b->core.pos;
+
+    // get length of cigar length that consumes reference and query
+    uint32_t qr_len = 0;
+    for (i = 0; i < n_cigar; ++i){
+        uint32_t c_op = bam_cigar_op(cigar_raw[i]); // lower 4 bits is cigar op
+        uint32_t c_len = bam_cigar_oplen(cigar_raw[i]); // higher 24 bits is length
+
+        int cr = bam_cigar_type(c_op)&2; // consumes reference
+        int cq = bam_cigar_type(c_op)&1; // consumes query
+
+        if (cr && cq) qr_len += c_len;
     }
 
     khint_t k;
@@ -152,18 +161,9 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
             continue;
         }
 
-        char strand = '+';
-        if (bam_is_rev(b)) strand = '-';
-
-        // pos is 0-based leftmost base of first CIGAR op that consumes reference.
-        hts_pos_t pos = b->core.pos;
         // position of CIGAR segment in reference sequence
         hts_pos_t r_beg = pos, r_end = pos;
 
-        uint32_t *cigar_raw = bam_get_cigar(b);
-        uint32_t n_cigar = b->core.n_cigar;
-
-        int i;
         for (i = 0; i < n_cigar; ++i){ // for each CIGAR op
             uint32_t c_op = bam_cigar_op(cigar_raw[i]); // lower 4 bits is cigar op
             uint32_t c_len = bam_cigar_oplen(cigar_raw[i]); // higher 24 bits is length
@@ -179,7 +179,7 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
 
             // if consumes reference, add cigar length to get end position 
             // of CIGAR seg in reference seq.
-            // if doesn't r_end is still equal to r_beg
+            // if doesn't, e.g. insertion, r_end is still equal to r_beg
             if (cr)
                 r_end = r_beg + c_len;
 
@@ -194,21 +194,19 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
                 }
                 if (exon != NULL && exon->next != NULL && 
                     exon->end == r_beg && exon->next->beg == r_end){
-                    // print_bam1_t(b);
-                    // fprintf(stdout, "%s overlap junction intron [%i,%i) N [%i,%i)\n", g->name, (int)exon->end, (int)exon->next->beg, 
-                    //         (int)r_beg, (int)r_end);
                     sj[iso_i] = 1;
                 }
             }
 
             /*********************************************************
              * CQR length
-             * only check exon-query overlap with query 
-             *   segments that consume reference and query
+             * overlap with isoform [beg,end)
              *********************************************************/
 
-            if (cr && cq)
-                rl[iso_i] += (double)c_len;
+            if (cr && cq){
+                rl[iso_i] += (double)bp_overlap(r_beg, r_end, strand, 
+                        iso->beg, iso->end, g->strand);
+            }
 
             /*********************************************************
              * check intron overlap
@@ -251,6 +249,8 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
                 ero[iso_i] += (double)ovrlp; // add overlap of CIGAR segment
             }
         }
+
+        pt[iso_i] = (double)rl[iso_i] / (double)qr_len;
         if (rl[iso_i] > 0){
             pi[iso_i] = iro[iso_i] / rl[iso_i];
             pe[iso_i] = ero[iso_i] / rl[iso_i];
@@ -258,18 +258,15 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
         iso_i++;
     }
 
-    if (iso_i != n_iso){
-        return err_msg(-1, 0, "bam1_spliced: number of isoforms are inconsistent");
-        *ret = -1;
-        return 0;
-    }
-
     /*********************************************************
      * get spliced or unspliced status of record for each isoform
      *********************************************************/
 
+    int n_o_iso = 0; // number isoforms with full overlap with UMI
     int is_spl = 0, is_unspl = 0;
     for (i = 0; i < n_iso; ++i){
+        if (pt[i] < 1) continue;
+        n_o_iso++;
         if (sj[i] == 1) // if overlaps splice junction
             is_spl++;
         if (pi[i] > 0) // if at least one base pair overlaps intron
@@ -285,18 +282,11 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
      *********************************************************/
 
     uint8_t spl_stat;
-    /*
-    if (is_unspl){
-        print_bam1_t(b);
-        for (i=0; i < n_iso; ++i){
-            fprintf(stdout, "pe[%i]=%f; pi[%i]=%f\n", i, pe[i], i, pi[i]);
-        }
-    }
-    */
     if (is_spl > 0) spl_stat = SPLICE;
-    else if (is_unspl == n_iso) spl_stat = UNSPLICE;
+    else if ((is_unspl > 0) && (is_unspl == n_o_iso)) spl_stat = UNSPLICE;
     else spl_stat = AMBIG;
 
+    free(pt);
     free(pi);
     free(pe);
     free(iro);
@@ -304,7 +294,7 @@ uint8_t bam1_spliced(bam1_t *b, Gene *g, int *ret){
     free(rl);
     free(sj);
 
-    return(spl_stat);
+    return spl_stat;
 }
 
 int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_var, uint8_t *m_var,
@@ -317,12 +307,12 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
     int gv_ix = str_map_ix(gv->chrm_ix, (char *)ref);
     if (gv_ix < 0){
         *n_var = 0;
-        return(0);
+        return 0;
     }
     
     hts_pos_t b_beg = b->core.pos;
     hts_pos_t b_end = bam_endpos(b);
-    if (b_end == b_beg + 1) return(-1); // unmapped;
+    if (b_end == b_beg + 1) return -1; // unmapped;
 
     int var_q_n = 0;
     int var_q_m = 4;
@@ -330,14 +320,12 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
     int var_cig_n = 0;
     int var_cig_m = 4;
     Var **var_cig = calloc(var_cig_m, sizeof(Var *));
-    if (var_q == NULL || var_cig == NULL){
-        err_msg(-1, 0, "overlap_bam1_vars: %s", strerror(errno));
-        return -1;
-    }
+    if (var_q == NULL || var_cig == NULL)
+        return err_msg(-1, 0, "overlap_bam1_vars: %s", strerror(errno));
 
     uint32_t *cigar_raw = bam_get_cigar(b);
     uint32_t n_cigar = b->core.n_cigar;
-    int i;
+    int i, vi = 0;
     for (i = 0; i < n_cigar; ++i){
         // get CIGAR op
         uint32_t op = bam_cigar_op(cigar_raw[i]);
@@ -353,15 +341,16 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
 
         // get overlapping variants in CIGAR
         var_cig_n = vars_from_region(gv, ref, b_beg, b_end, &var_cig, &var_cig_m);
-        if (var_cig_n < 0) return(-1);
+        if (var_cig_n < 0) return -1;
 
         var_q_n += var_cig_n;
-        if (var_q_n > var_q_m){
+        while (var_q_n > var_q_m){
             var_q_m = var_q_n << 1;
             var_q = realloc(var_q, var_q_m * sizeof(Var *));
         }
-        Var **tmp = var_q + (var_q_n - var_cig_n);
-        memcpy(tmp, var_cig, var_cig_n * sizeof(Var *));
+        int j;
+        for (j = 0; j < var_cig_n; ++j)
+            var_q[vi++] = var_cig[j];
 
         b_beg = b_end;
     }
@@ -375,10 +364,8 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
         *var = realloc(*var, *m_var * sizeof(char *));
         *base = realloc(*base, *m_var * sizeof(uint8_t));
         *qual = realloc(*qual, *m_var * sizeof(uint8_t));
-        if (*var == NULL || *base == NULL || *qual == NULL){
-            err_msg(-1, 0, "overlap_bam1_vars: %s", strerror(errno));
-            return(-1);
-        }
+        if (*var == NULL || *base == NULL || *qual == NULL)
+            return err_msg(-1, 0, "overlap_bam1_vars: %s", strerror(errno));
     }
 
     // fill var, base, qual
@@ -390,15 +377,15 @@ int overlap_bam1_vars(const sam_hdr_t *h, bam1_t *b, GenomeVar *gv, uint8_t *n_v
         
         if (t_qual < min_qual){
             int k;
-            for (k = i; k < var_q_n - 1; ++k){
+            for (k = i; k < var_q_n - 1; ++k)
                 var_q[k] = var_q[k+1];
-            }
             var_q[k] = NULL;
             i--;
             var_q_n--;
             continue;
         }
         char *id = var_q[i]->vid;
+        // sorted insert by string
         int j = 0;
         for (; j < i; j++){
             if (strcmp(id, (*var)[j]) < 0){
@@ -471,6 +458,6 @@ int64_t bp_overlap(int64_t a1, int64_t a2, char a_strand, int64_t b1, int64_t b2
         return err_msg(-1, 0, "bp_overlap: overlap is negative");
     }
 
-    return(o);
+    return o;
 }
 

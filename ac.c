@@ -19,13 +19,8 @@
 #include "overlap.h"
 #include "a_count.h"
 
-void print_status_ac(const char* k, int i, const char *chr, int pos){
-    time_t now;
-    time(&now);
-    char dt[20];
-    get_time(dt, 20);
-    fprintf(stdout, "%s: processed %i %s through %s:%i\n", dt, i, k, chr, pos);
-    fflush(stdout);
+static void print_status_ac(const char* k, int i, const char *chr, int pos){
+    log_msg("processed %i %s through %s:%i", i, k, chr, pos);
 }
 
 static void usage(FILE *fp, int exit_status){
@@ -36,15 +31,13 @@ static void usage(FILE *fp, int exit_status){
             "\n"
             "Options:\n"
             "\n"
-            "Required options:\n"
-            "\n"
             "  -b, --bam           Indexed BAM file.\n"
             "  -v, --vcf           VCF file. Will output counts for the SNPs in this file.\n"
             "  -o, --out           Output file prefix [ac.].\n"
             "  -B, --bc-tag        BAM tag for barcode [CB].\n"
             "  -U, --umi-tag       BAM tag for UMI [UB].\n"
             "  -H, --nh-tag        BAM tag for the number of alignments of a read [NH].\n"
-            "  -m, --max-nh        Only process reads with a maximum of this many alignments [10]. Set to 0 to ignore.\n"
+            "  -m, --max-nh        Only process reads with a maximum of this many alignments [1]. Set to 0 to ignore.\n"
             "  -p, --min-phredq    Minimum base phred quality score in read [30].\n"
             "  -c, --barcodes      File containing list of barcode IDs, one per line.\n"
             "  -r, --region        Region (hts format), for example 'chr21,chr21:10-,chr21-10-20'.\n"
@@ -102,7 +95,7 @@ int allele_count(int argc, char *argv[]){
     char nh_tag[] = "NH";
 
     /* read filters */
-    int max_nh = 10; // max number mappings per read
+    int max_nh = 1; // max number mappings per read
     int min_phred = 30; // min phred quality score
     char *bc_fn = NULL;
 
@@ -218,7 +211,7 @@ int allele_count(int argc, char *argv[]){
             goto cleanup;
         }
         if ( verbose ){
-            fprintf(stdout, "read %i barcodes from %s\n", n_bc, bc_fn);
+            log_msg("read %i barcodes from %s", n_bc, bc_fn);
             fflush(stdout);
         }
     }
@@ -226,7 +219,7 @@ int allele_count(int argc, char *argv[]){
 
     /* Store VCF variants  */
     if (verbose){
-        fprintf(stdout, "reading VCF file %s\n", vcffn);
+        log_msg("reading VCF file %s", vcffn);
         fflush(stdout);
     }
     sr = bcf_sr_init();
@@ -247,7 +240,7 @@ int allele_count(int argc, char *argv[]){
 
     gv = vcf2gv(sr, vcf_hdr);
     if (verbose){
-        fprintf(stdout, "added %i variants\n", gv->var_ix->n);
+        log_msg("added %i variants", gv->var_ix->n);
         fflush(stdout);
     }
     /* */
@@ -293,14 +286,14 @@ int allele_count(int argc, char *argv[]){
             
     // Loop over BAM records/
     if (verbose){
-        fprintf(stdout, "processing alignments in %s\n", bamfn); fflush(stdout);
+        log_msg("processing alignments in %s", bamfn);
     }
     int iter_ret;
     bam_r = bam_init1();
     while ( (iter_ret = sam_itr_next(bam, bam_itr, bam_r)) >= 0){
-        if ( (verbose) && (n_reads % (int)1e6 == 0)){
+        if ( (verbose) && (n_reads % (int)10e6 == 0)){
             const char *chr = sam_hdr_tid2name(bam_hdr, bam_r->core.tid);
-            print_status_ac("alignments", n_reads, chr, (int)(bam_r->core.pos+1));
+            print_status_ac("million alignments", n_reads/1e6, chr, (int)(bam_r->core.pos+1));
         }
         n_reads++;
 
@@ -336,7 +329,7 @@ int allele_count(int argc, char *argv[]){
             goto cleanup;
         }
 
-        if (n_var > 0 || n_feat > 0){
+        if (n_var > 0){
             int rret = add_rec(records, b_cb, b_umi,  
                     n_feat, (const char **)feat, (const uint8_t *)splice, 
                     n_var, (const char **)var, (const uint8_t *)base, (const uint8_t *)qual); 
@@ -356,7 +349,7 @@ int allele_count(int argc, char *argv[]){
     /* print out record stats */
     if (verbose){
         int nrec = n_recs(records);
-        fprintf(stdout, "stored %i records from %i UMIs in %i barcodes\n", 
+        log_msg("stored %i records from %i UMIs in %i barcodes", 
                 nrec, records->umi_ix->n, records->bc_ix->n);
         fflush(stdout);
     }
@@ -365,7 +358,7 @@ int allele_count(int argc, char *argv[]){
 
     // call UMIs
     if (verbose){
-        fprintf(stdout, "filtering UMI reads\n");
+        log_msg("filtering UMI reads");
         fflush(stdout);
     }
     call_umis(records);
@@ -395,7 +388,7 @@ int allele_count(int argc, char *argv[]){
     }
 
     if (verbose){
-        fprintf(stdout, "finished\n");
+        log_msg("finished");
         fflush(stdout);
     }
 
