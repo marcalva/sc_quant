@@ -20,7 +20,7 @@ OBJS = main.o ac.o a_count.o bc_umi.o bins.o gc.o g_count.o \
 LDFLAGS = $(HTSLIB_LIBS)
 
 sc_quant : $(OBJS) $(HTSLIB)
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(SCLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(SCLIBS)
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $< 

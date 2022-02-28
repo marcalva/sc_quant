@@ -118,9 +118,9 @@ int bc_gc_count(bc_gc *a, Records *recs){
                 if (n->ix < fix){ // if gene not found
                     gc_node *nn = init_gc_node();
                     nn->ix = fix;
+                    nn->counts[rec->splice[f]] += 1;
                     nn->next = n->next;
                     n->next = nn;
-                    n = nn;
                     a->n_nz += 1;
                 }
                 else if (n->ix == fix){

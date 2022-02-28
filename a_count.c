@@ -121,9 +121,9 @@ int bc_ac_count(bc_ac *a, Records *recs){
                 if (n->ix < vix){ // if variant not found
                     ac_node *nn = init_ac_node();
                     nn->ix = vix;
+                    nn->counts[rec->base[v]] += 1;
                     nn->next = n->next;
                     n->next = nn;
-                    n = nn;
                     a->n_nz += 1;
                 } 
                 else if (n->ix == vix){
