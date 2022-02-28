@@ -16,6 +16,7 @@
 #include "g_count.h"
 #include "bc_umi.h"
 #include "overlap.h"
+#include "scq_version.h"
 
 static void print_status_gc(const char* k, int i, const char *chr, int pos){
     log_msg("processed %i %s through %s:%i", i, k, chr, pos);
@@ -24,7 +25,8 @@ static void print_status_gc(const char* k, int i, const char *chr, int pos){
 static void usage(FILE *fp, int exit_status){
     fprintf(fp, 
             "\n"
-            "sc_quant v0.1.0: Generate counts from single-cell experiments\n"
+            "sc_quant: Generate counts from single-cell experiments\n"
+            "Version:  %s\n"
             "Usage:    sc_quant gc [options] --bam bamfile --gtf gtffile --out outfile \n"
             "\n"
             "Options:\n"
@@ -39,7 +41,8 @@ static void usage(FILE *fp, int exit_status){
             "  -c, --barcodes      File containing list of barcode IDs, one per line.\n"
             "  -r, --region        Region (hts format), for example 'chr21,chr21:10-,chr21-10-20'.\n"
             "  -V, --verbose       Write status on output.\n"
-            "\n");
+            "\n" 
+            ,SCQ_VERSION);
     exit(exit_status);
 }
 

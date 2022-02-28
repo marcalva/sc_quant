@@ -5,6 +5,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <errno.h>
+#include "scq_version.h"
 
 int gene_count(int argc, char *argv[]);
 int allele_count(int argc, char *argv[]);
@@ -12,14 +13,15 @@ int allele_count(int argc, char *argv[]);
 static void usage(FILE *fp, int exit_status){
     fprintf(fp, 
             "\n"
-            "sc_quant v0.1.0: Generate counts from single-cell experiments\n"
+            "sc_quant: Generate counts from single-cell experiments\n"
+            "Version:  %s\n"
             "Usage:    sc_quant <command> [options]\n"
             "\n"
             "Commands:\n"
             "  gc           Generate gene-barcode counts.\n"
             "  ac           Generate variant allele-barcode counts.\n"
             "\n"
-            );
+            , SCQ_VERSION);
     exit(exit_status);
 }
 
