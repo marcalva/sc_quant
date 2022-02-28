@@ -87,12 +87,15 @@ For gene counts, three matrices are produced with the suffixes
 - `gc.spl.mtx.gz` for spliced counts
 - `gc.uns.mtx.gz` for unspliced counts
 - `gc.amb.mtx.gz` for ambiguous counts
+
 The rows (genes) and columns (barcodes) are given in the files ending 
 `gc.gene.txt.gz` and `gc.barcodes.txt.gz`, respectively.
+
 For allele counts, three matrices are produced with the suffixes
 - `ac.ref.mtx.gz` for reference allele counts
 - `ac.alt.mtx.gz` for alternate allele counts
 - `ac.oth.mtx.gz` for other allele counts
+
 Similarly, the rows (variants) and columns (barcodes) are given in the files 
 ending `ac.var.txt.gz` and `ac.barcodes.txt.gz`, respectively.
 
