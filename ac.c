@@ -21,7 +21,7 @@
 #include "scq_version.h"
 
 static void print_status_ac(const char* k, int i, const char *chr, int pos){
-    log_msg("processed %i %s through %s:%i", i, k, chr, pos);
+    log_msg("processed %" PRIu64 " %s through %s:%i", i, k, chr, pos);
 }
 
 static void usage(FILE *fp, int exit_status){
@@ -202,7 +202,7 @@ int allele_count(int argc, char *argv[]){
     /* Instantiate records */
     records = init_records();
 
-    int n_reads = 0;
+    uint64_t n_reads = 0;
     int n_bc = 0;
     /* */
 
@@ -294,9 +294,9 @@ int allele_count(int argc, char *argv[]){
     int iter_ret;
     bam_r = bam_init1();
     while ( (iter_ret = sam_itr_next(bam, bam_itr, bam_r)) >= 0){
-        if ( (verbose) && (n_reads % (int)10e6 == 0)){
+        if ( (verbose) && (n_reads % (uint64_t)10e6 == 0)){
             const char *chr = sam_hdr_tid2name(bam_hdr, bam_r->core.tid);
-            print_status_ac("million alignments", n_reads/1e6, chr, (int)(bam_r->core.pos+1));
+            print_status_ac("million alignments", n_reads/(uint64_t)1e6, chr, (int)(bam_r->core.pos+1));
         }
         n_reads++;
 
